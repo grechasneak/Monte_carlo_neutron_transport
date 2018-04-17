@@ -1,0 +1,4 @@
+material,sigma_t1,sigma_s11,sigma_s12,sigma_t2,sigma_s22,sigma_f2,nu2
+mox,0.2,0.185,0,0.6,0,0.6,1.5
+u,0.2,0.185,0,0.2,0,0.2,1.5
+water,0.2,0.17,0.03,1.1,1.1,0,0
