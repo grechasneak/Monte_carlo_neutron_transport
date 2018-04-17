@@ -23,44 +23,39 @@ class Neutron():
 	def scatter(self):
 		self.direction = 2 * random.random() - 1
 
-	def crossection(self, material, interaction):
-		return self.xs.ix[material, interaction]
-		
 
 	def distance(self, material):
 		if self.group == 1:
-			return abs(np.log(random.random())/self.crossection(material, 'sigma_t1'))
+			return abs(np.log(random.random())/self.xs.loc[material, 'sigma_t1'])
 		else:
-			return abs(np.log(random.random())/self.crossection(material, 'sigma_t2'))
+			return abs(np.log(random.random())/self.xs.loc[material, 'sigma_t2'])
 			 
 
 	def interaction(self):
-
 		self.update_cell()
-		material = self.df.ix[self.cell, 1]
-
-		sigma_t1 = self.crossection(material, 0)
-		sigma_s11 = self.crossection(material, 1)
-		sigma_t2 = self.crossection(material, 3)
-		sigma_s22 = self.crossection(material, 4)
+		material = self.df.iloc[self.cell, 1]
+		sigma_t1 = self.xs.loc[material, 'sigma_t1']
+		sigma_s11 = self.xs.loc[material, 'sigma_s11']
+		sigma_t2 = self.xs.loc[material, 'sigma_t2']
+		sigma_s22 = self.xs.loc[material, 'sigma_s22']
 
 
 		if self.group == 1:
-			if random.random()  <= (sigma_s11/sigma_t1): #is it within group?
+			if random.random()  <= (sigma_s11/sigma_t1): 
 				self.scatter()
 				return 's11'
-				# down scatter
+
 			else:
 				self.group = 2
 				self.scatter()
 				return 's12'
 				
 		if self.group == 2:
-			if random.random() <= (sigma_s22/sigma_t2): #does it scatter or fission?
+			if random.random() <= (sigma_s22/sigma_t2):
 				self.scatter()
 				return 's22'
 					
-			else: # fission
+			else: 
 				return 'fission'
 
 
@@ -68,8 +63,10 @@ class Neutron():
 	def move(self):
 		while True:
 			self.update_cell()
-			material = self.df.ix[self.cell, 1]
+			material = self.df.iloc[self.cell, 1]
+			
 			s = self.distance(material)
+			
 			#print(self.location)
 			
 			right_cell_pos = self.cell * spacing + spacing
@@ -87,12 +84,12 @@ class Neutron():
 					if self.location > 20.0:
 						self.direction = - self.direction
 						self.location = 19.9999
-					yield self.cell, traveled
+					yield ((self.cell, traveled), self.group)
 						
 					#if it is within the cell
 				else:
 					self.location = possible_location
-					yield  self.cell, s
+					yield  ((self.cell, s), self.group)
 					break
 					
 
@@ -108,12 +105,12 @@ class Neutron():
 					if self.location < 0.0:
 						self.direction = - self.direction
 						self.location = 0.0001
-					yield  self.cell, traveled
+					yield  ((self.cell, traveled), self.group)
 						
 
 				else:
 					self.location = possible_location
-					yield  self.cell, s
+					yield  ((self.cell, s), self.group)
 					break
 
 
@@ -121,7 +118,7 @@ global spacing
 spacing = 0.15625
 
 generations = 1
-neutrons = 100
+neutrons = 10000
 
 k0 = 1
 F0 = 1
@@ -134,46 +131,32 @@ weight = 1
 
 grid = pd.read_csv('grid.csv')
 xs = pd.read_csv('XS.csv', index_col = 'material')
-
 n = Neutron(grid, xs)
 
 flux_1 = np.zeros(128)
 flux_2 = np.zeros(128)
-
-
-
 for i in range(generations):
-
 	for i in range(neutrons):
 			n = Neutron(grid, xs)
 			while True:
 				
 				#move unitll interaction occurs
 				for track_data in n.move():
-					print(data)
+					cell = track_data[0][0]
+					track = track_data[0][1]
+					group = track_data[1]
 					
+					if group == 1:
+						flux_1[cell] = flux_1[cell] + (track * weight) / (neutrons * spacing)
+					if group == 2:
+						flux_2[cell] = flux_2[cell] + (track * weight) / (neutrons * spacing)
 				#what kind of interaction
-				data = n.interaction()
-				print(data)
-				if data == 'fission':
+				interaction = n.interaction()
+				if interaction == 'fission':
 					break
-					
-					
-					
-					
-					
-			# for  in n.interaction():
-				# print(track_data)
-				# cell = track_data[0][0]
-				# track = track_data[0][1]
-				# group = track_data[1]
 
-				# if group == 1:
-					# flux_1[cell] = flux_1[cell] + (track * weight) / (neutrons * spacing)
-				# if group == 2:
-					# flux_2[cell] = flux_2[cell] + (track * weight) / (neutrons * spacing)
 					
-# plt.plot(flux_1)
-# plt.plot(flux_2)
-# plt.show()
-				# #print(track)
+plt.plot(flux_1)
+plt.plot(flux_2)
+plt.show()
+			
