@@ -8,18 +8,28 @@ import matplotlib.pyplot as plt
 import scipy.stats
 
 class Neutron():
-	def __init__(self, grid, data):
+	def __init__(self, grid, data, birth_cpdf):
 		self.group = 1
-		self.birth = 20*random.random()
-		self.location = self.birth
-		self.direction = 2 * random.random() - 1
-		self.update_cell()
 		self.df = grid
 		self.xs = data
+		self.birth_cpdf = birth_cpdf
 		
+		self.cell = self.sample_birth_cell()
+		self.location = (self.cell * spacing)+(random.random() * spacing)
+		self.direction = 2 * random.random() - 1
+		
+		
+
 	def update_cell(self):
 		self.cell = int(self.location/spacing)
 		
+	def sample_birth_cell(self):
+		cell_sample = random.random()
+		for i, sample in enumerate(self.birth_cpdf):
+
+			if cell_sample < sample:
+				return (i-1)
+	
 	def scatter(self):
 		self.direction = 2 * random.random() - 1
 
@@ -34,6 +44,7 @@ class Neutron():
 	def interaction(self):
 		self.update_cell()
 		material = self.df.iloc[self.cell, 1]
+		
 		sigma_t1 = self.xs.loc[material, 'sigma_t1']
 		sigma_s11 = self.xs.loc[material, 'sigma_s11']
 		sigma_t2 = self.xs.loc[material, 'sigma_t2']
@@ -113,7 +124,7 @@ class Neutron():
 					yield  ((self.cell, s), self.group)
 					break
 
-def generate_fissionSource(grid, xs):
+def initialize_fissionSource(grid, xs): # assumes uniform flux
 	fission_sourceF = []
 	for material in grid['material']:
 		nu2 = xs.loc[material, 'nu2']
@@ -129,21 +140,14 @@ def generate_cpdf(fission_source):
 	#cpdf = np.asarray(cpdf)
 	return cpdf
 	
-def sample_birth_cell(cpdf):
-	cell_sample = random.random()
-	for i, sample in enumerate(cpdf):
-		#print(i, sample)
-		while cell_sample > sample:
-			pass
-		else:
-			return (cell_sample, sample)
+
 	
 
 global spacing
 spacing = 0.15625
 
 generations = 1
-neutrons = 100
+neutrons = 10000
 
 k0 = 1
 
@@ -156,20 +160,15 @@ weight = 1
 
 grid = pd.read_csv('grid.csv')
 xs = pd.read_csv('XS.csv', index_col = 'material')
-n = Neutron(grid, xs)
-
-
-
-
-F0 = generate_fissionSource(grid, xs)
+F0 = initialize_fissionSource(grid, xs)
 cpdf = generate_cpdf(F0)
-birth_sample = sample_birth_cell(cpdf)
+n = Neutron(grid, xs, cpdf)
 
 for i in range(generations):
 	flux_1 = np.zeros(128)
 	flux_2 = np.zeros(128)
 	for i in range(neutrons):
-			n = Neutron(grid, xs)
+			n = Neutron(grid, xs, cpdf)
 			while True:
 				
 				#move unitll interaction occurs
@@ -195,8 +194,8 @@ for i in range(generations):
 		
 	#hist_dist = scipy.stats.rv_histogram(F_normed)
 
-#plt.hist(F_normed)				
-# plt.plot(flux_1)
-# plt.plot(flux_2)
-#plt.show()
+				
+plt.plot(flux_1)
+plt.plot(flux_2)
+plt.show()
 			
