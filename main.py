@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
+import scipy.stats
 
 class Neutron():
 	def __init__(self, grid, data):
@@ -113,15 +113,40 @@ class Neutron():
 					yield  ((self.cell, s), self.group)
 					break
 
+def generate_fissionSource(grid, xs):
+	fission_sourceF = []
+	for material in grid['material']:
+		nu2 = xs.loc[material, 'nu2']
+		sigma_f2 = xs.loc[material, 'sigma_f2']
+		fission_sourceF.append(nu2 * sigma_f2)
+	return np.asarray(fission_sourceF)
+	
+def generate_cpdf(fission_source):
+	F_normed = fission_source * spacing / sum(fission_source * spacing)
+	cpdf = []
+	for i in range(128):
+		cpdf.append(sum(F_normed[:i]))
+	#cpdf = np.asarray(cpdf)
+	return cpdf
+	
+def sample_birth_cell(cpdf):
+	cell_sample = random.random()
+	for i, sample in enumerate(cpdf):
+		#print(i, sample)
+		while cell_sample > sample:
+			pass
+		else:
+			return (cell_sample, sample)
+	
 
 global spacing
 spacing = 0.15625
 
 generations = 1
-neutrons = 10000
+neutrons = 100
 
 k0 = 1
-F0 = 1
+
 
 k = []
 F = []
@@ -133,9 +158,16 @@ grid = pd.read_csv('grid.csv')
 xs = pd.read_csv('XS.csv', index_col = 'material')
 n = Neutron(grid, xs)
 
-flux_1 = np.zeros(128)
-flux_2 = np.zeros(128)
+
+
+
+F0 = generate_fissionSource(grid, xs)
+cpdf = generate_cpdf(F0)
+birth_sample = sample_birth_cell(cpdf)
+
 for i in range(generations):
+	flux_1 = np.zeros(128)
+	flux_2 = np.zeros(128)
 	for i in range(neutrons):
 			n = Neutron(grid, xs)
 			while True:
@@ -150,13 +182,21 @@ for i in range(generations):
 						flux_1[cell] = flux_1[cell] + (track * weight) / (neutrons * spacing)
 					if group == 2:
 						flux_2[cell] = flux_2[cell] + (track * weight) / (neutrons * spacing)
+						
 				#what kind of interaction
 				interaction = n.interaction()
 				if interaction == 'fission':
+					print('fission')
 					break
-
 					
-plt.plot(flux_1)
-plt.plot(flux_2)
-plt.show()
+	Fn = flux_2 * F0	
+	F_normed = Fn * spacing/ sum(Fn * spacing)
+	kn = k0 * sum(Fn * spacing)
+		
+	#hist_dist = scipy.stats.rv_histogram(F_normed)
+
+#plt.hist(F_normed)				
+# plt.plot(flux_1)
+# plt.plot(flux_2)
+#plt.show()
 			
