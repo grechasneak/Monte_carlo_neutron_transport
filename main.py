@@ -15,7 +15,7 @@ class Neutron():
 		self.birth_cpdf = birth_cpdf
 		
 		self.cell = self.sample_birth_cell()
-		self.location = (self.cell * spacing)+(random.random() * spacing)
+		self.location = (self.cell * spacing) + (random.random() * spacing)
 		self.direction = 2 * random.random() - 1
 		
 		
@@ -124,13 +124,13 @@ class Neutron():
 					yield  ((self.cell, s), self.group)
 					break
 
-def initialize_fissionSource(grid, xs): # assumes uniform flux
+def gen_fissionSource(grid, xs, flux): # assumes uniform flux
 	fission_sourceF = []
 	for material in grid['material']:
 		nu2 = xs.loc[material, 'nu2']
 		sigma_f2 = xs.loc[material, 'sigma_f2']
 		fission_sourceF.append(nu2 * sigma_f2)
-	return np.asarray(fission_sourceF)
+	return np.asarray(fission_sourceF) * flux
 	
 def generate_cpdf(fission_source):
 	F_normed = fission_source * spacing / sum(fission_source * spacing)
@@ -146,28 +146,27 @@ def generate_cpdf(fission_source):
 global spacing
 spacing = 0.15625
 
-generations = 1
+generations = 10
 neutrons = 10000
 
-k0 = 1
-
-
-k = []
-F = []
-
-weight = 1
 
 
 grid = pd.read_csv('grid.csv')
 xs = pd.read_csv('XS.csv', index_col = 'material')
-F0 = initialize_fissionSource(grid, xs)
+
+F0 = gen_fissionSource(grid, xs, np.ones(128)) #initialize the values for F
 cpdf = generate_cpdf(F0)
-n = Neutron(grid, xs, cpdf)
+kn = 1
+weight = 1
+
+F = []
+k = []
 
 for i in range(generations):
 	flux_1 = np.zeros(128)
 	flux_2 = np.zeros(128)
 	for i in range(neutrons):
+
 			n = Neutron(grid, xs, cpdf)
 			while True:
 				
@@ -185,17 +184,23 @@ for i in range(generations):
 				#what kind of interaction
 				interaction = n.interaction()
 				if interaction == 'fission':
-					print('fission')
+					#print('fission', i)
 					break
 					
-	Fn = flux_2 * F0	
-	F_normed = Fn * spacing/ sum(Fn * spacing)
-	kn = k0 * sum(Fn * spacing)
-		
-	#hist_dist = scipy.stats.rv_histogram(F_normed)
+	fissions = gen_fissionSource(grid, xs, flux_2)	
+	kn = spacing * sum(fissions)
+	F.append((flux_1,flux_2))
+	k.append(kn)
+	#print(kn)
+	weight = 1 / kn
+	cpdf = generate_cpdf(fissions)
 
-				
-plt.plot(flux_1)
-plt.plot(flux_2)
-plt.show()
+
+
+	
+	#plt.plot(flux_1)
+	#plt.plot(flux_2)
+	#plt.show()
 			
+
+		
