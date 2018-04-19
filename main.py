@@ -146,8 +146,8 @@ def generate_cpdf(fission_source):
 global spacing
 spacing = 0.15625
 
-generations = 10
-neutrons = 10000
+generations = 25
+neutrons = 1000
 
 
 
@@ -184,12 +184,12 @@ for i in range(generations):
 				#what kind of interaction
 				interaction = n.interaction()
 				if interaction == 'fission':
-					#print('fission', i)
+					print('fission', i)
 					break
 					
 	fissions = gen_fissionSource(grid, xs, flux_2)	
-	kn = spacing * sum(fissions)
-	F.append((flux_1,flux_2))
+	kn = spacing * sum(fissions)  * kn
+	F.append((flux_1, flux_2))
 	k.append(kn)
 	#print(kn)
 	weight = 1 / kn
@@ -198,9 +198,9 @@ for i in range(generations):
 
 
 	
-	#plt.plot(flux_1)
-	#plt.plot(flux_2)
-	#plt.show()
+plt.plot(flux_1)
+plt.plot(flux_2)
+plt.show()
 			
 
 		
