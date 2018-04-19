@@ -90,11 +90,12 @@ class Neutron():
 				if possible_location > right_cell_pos: 
 					delta_x = right_cell_pos - self.location
 					traveled = delta_x / self.direction
-					self.location = right_cell_pos + 0.0001
+					self.location = right_cell_pos + 0.001
 						
 					if self.location > 20.0:
 						self.direction = - self.direction
-						self.location = 19.9999
+						self.location = 19.999
+						
 					yield ((self.cell, traveled), self.group)
 						
 					#if it is within the cell
@@ -111,11 +112,11 @@ class Neutron():
 				if possible_location < left_cell_pos:
 					delta_x = self.location - left_cell_pos
 					traveled = abs(delta_x/self.direction)
-					self.location = left_cell_pos - 0.0001
+					self.location = left_cell_pos - 0.001
 						
 					if self.location < 0.0:
 						self.direction = - self.direction
-						self.location = 0.0001
+						self.location = 0.001
 					yield  ((self.cell, traveled), self.group)
 						
 
@@ -146,8 +147,8 @@ def generate_cpdf(fission_source):
 global spacing
 spacing = 0.15625
 
-generations = 25
-neutrons = 1000
+generations = 10
+neutrons = 100
 
 
 
@@ -165,6 +166,8 @@ k = []
 for i in range(generations):
 	flux_1 = np.zeros(128)
 	flux_2 = np.zeros(128)
+	flux1_squared = np.zeros(128)
+	flux2_squared = np.zeros(128)
 	for i in range(neutrons):
 
 			n = Neutron(grid, xs, cpdf)
@@ -178,9 +181,10 @@ for i in range(generations):
 					
 					if group == 1:
 						flux_1[cell] = flux_1[cell] + (track * weight) / (neutrons * spacing)
+						flux1_squared[cell] = flux1_squared[cell] + ((track * weight) / (neutrons * spacing))
 					if group == 2:
 						flux_2[cell] = flux_2[cell] + (track * weight) / (neutrons * spacing)
-						
+						flux2_squared[cell] = flux2_squared[cell] + ((track * weight) / (neutrons * spacing))
 				#what kind of interaction
 				interaction = n.interaction()
 				if interaction == 'fission':
@@ -189,17 +193,41 @@ for i in range(generations):
 					
 	fissions = gen_fissionSource(grid, xs, flux_2)	
 	kn = spacing * sum(fissions)  * kn
-	F.append((flux_1, flux_2))
+	F.append((flux_1, flux_2, flux1_squared, flux2_squared))
 	k.append(kn)
 	#print(kn)
 	weight = 1 / kn
 	cpdf = generate_cpdf(fissions)
 
 
-
+def process_statistics(F):
+	Flux1 = np.zeros(128)
+	Flux2 = np.zeros(128)
+	Flux1_squared = np.zeros(128)
+	Flux2_squared = np.zeros(128)
+	for data in F:
+		flux_1 = data[0]
+		flux_2 = data[1]
+		flux1_squared = data[2]
+		flux2_squared = data[3]
+		
+		Flux1 = Flux1 + flux_1
+		Flux2 = Flux2 + flux_2 
+		Flux1_squared = Flux1_squared + flux1_squared
+		Flux2_squared = Flux2_squared + flux2_squared
+		
+	total_neutrons = (len(F) * neutrons)
 	
-plt.plot(flux_1)
-plt.plot(flux_2)
+	Flux1_average = Flux1 / total_neutrons
+	var1 = np.sqrt((1 / (total_neutrons - 1) * (Flux1_squared - Flux1_average))/total_neutrons)
+	
+	Flux2_average = Flux2 / total_neutrons
+	var2 = np.sqrt((1 / (total_neutrons - 1) * (Flux2_squared - Flux2_average))/total_neutrons)
+	return Flux1_average, Flux2_average, var1, var2
+	
+f1, f2, s1, s2 = process_statistics(F)	
+plt.plot(f1)
+plt.plot(f2)
 plt.show()
 			
 
