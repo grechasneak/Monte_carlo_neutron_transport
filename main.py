@@ -23,10 +23,10 @@ class Neutron():
 		self.cell = int(self.location/spacing)
 		
 	def sample_birth_cell(self):
-	'''
-	Searches through the cpdf for the first value that is larger than the random number.
-	The index of the number before the larger value is the birth cell.
-	'''
+		'''
+		Searches through the cpdf for the first value that is larger than the random number.
+		The index of the number before the larger value is the birth cell.
+		'''
 		cell_sample = random.random()
 		for i, sample in enumerate(self.birth_cpdf):
 			if cell_sample < sample:
@@ -72,11 +72,11 @@ class Neutron():
 
 
 	def move(self):
-	'''
-	Generator function that moves the neutron untill it stops in a cell.
-	Each time the neutron crosses a cell boudary or reaches the problem
-	boundary the function yields the cell, track in that cell, and group of the neutron. 
-	'''
+		'''
+		Generator function that moves the neutron untill it stops in a cell.
+		Each time the neutron crosses a cell boudary or reaches the problem
+		boundary the function yields the cell, track in that cell, and group of the neutron. 
+		'''
 		while True:
 			self.update_cell()
 			material = self.df.iloc[self.cell, 1]
@@ -145,6 +145,18 @@ def generate_cpdf(fission_source):
 	#cpdf = np.asarray(cpdf)
 	return cpdf
 	
+def tally_current(cells):
+	current_tally = []
+	try:
+		for i in range(len(cells)):
+			if cells[i] < cells[i + 1]:
+				current_tally.append((cells[i], 1))
+			
+			if cells[i] > cells[i + 1]:
+				current_tally.append((cells[i + 1], -1))
+	except:	
+		return current_tally
+	
 def process_statistics(F):
 	Flux1 = np.zeros(128)
 	Flux2 = np.zeros(128)
@@ -175,8 +187,8 @@ def process_statistics(F):
 global spacing
 spacing = 0.15625
 
-generations = 10
-neutrons = 1000
+generations = 5
+neutrons = 100
 
 
 
@@ -191,14 +203,18 @@ weight = 1
 
 F = []
 k = []
-
+currents = []
 for i in range(generations):
 	flux_1 = np.zeros(128)
 	flux_2 = np.zeros(128)
 	flux1_squared = np.zeros(128)
 	flux2_squared = np.zeros(128)
+    
+	current1 = np.zeros(127)
+	current2 = np.zeros(127)
+   
 	for i in range(neutrons):
-
+			cells = []
 			n = Neutron(grid, xs, cpdf)
 			while True:
 				
@@ -208,12 +224,33 @@ for i in range(generations):
 					track = track_data[0][1]
 					group = track_data[1]
 					
+					cells.append(cell)
 					if group == 1:
 						flux_1[cell] = flux_1[cell] + (track * weight) / (neutrons * spacing)
 						flux1_squared[cell] = flux1_squared[cell] + ((track * weight) / (neutrons * spacing))**2
+						
+						try:
+							if n.direction > 0:
+								current1[cell] = current1[cell] + 1
+							else: # negative direction
+								current1[cell - 1] = current1[cell - 1] - 1
+						except:
+							continue
+							
 					if group == 2:
 						flux_2[cell] = flux_2[cell] + (track * weight) / (neutrons * spacing)
 						flux2_squared[cell] = flux2_squared[cell] + ((track * weight) / (neutrons * spacing))**2
+						
+						try:
+							if n.direction > 0:
+								current2[cell] = current2[cell] + 1
+							
+							else: # negative direction
+								current2[cell - 1] = current2[cell - 1] - 1
+								
+						except:
+							continue
+							
 				#what kind of interaction
 				interaction = n.interaction()
 				if interaction == 'fission':
@@ -222,6 +259,7 @@ for i in range(generations):
 					
 	fissions = gen_fissionSource(grid, xs, flux_2)	
 	kn = spacing * sum(fissions)  * kn
+	currents.append((current1, current2))
 	F.append((flux_1, flux_2, flux1_squared, flux2_squared))
 	k.append(kn)
 	#print(kn)
@@ -230,10 +268,10 @@ for i in range(generations):
 
 
 
-f1, f2, std1, std2 = process_statistics(F)	
-plt.plot(range(len(f1)), f1)
-plt.fill_between(range(len(f2)), f2 - std2, f2 + std2)
-plt.fill_between(range(len(f1)), f1 - std1, f1 + std1)
+mu1, mu2, std1, std2 = process_statistics(F)	
+plt.plot(range(len(mu1)), mu1)
+plt.fill_between(range(len(mu2)), mu2 - std2, mu2 + std2)
+plt.fill_between(range(len(mu1)), mu1 - std1, mu1 + std1)
 plt.show()
 			
 
