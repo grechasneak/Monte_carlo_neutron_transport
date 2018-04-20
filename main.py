@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import scipy.stats
+
 
 class Neutron():
 	def __init__(self, grid, data, birth_cpdf):
@@ -18,21 +18,22 @@ class Neutron():
 		self.location = (self.cell * spacing) + (random.random() * spacing)
 		self.direction = 2 * random.random() - 1
 		
-		
 
 	def update_cell(self):
 		self.cell = int(self.location/spacing)
 		
 	def sample_birth_cell(self):
+	'''
+	Searches through the cpdf for the first value that is larger than the random number.
+	The index of the number before the larger value is the birth cell.
+	'''
 		cell_sample = random.random()
 		for i, sample in enumerate(self.birth_cpdf):
-
 			if cell_sample < sample:
 				return (i-1)
 	
 	def scatter(self):
 		self.direction = 2 * random.random() - 1
-
 
 	def distance(self, material):
 		if self.group == 1:
@@ -44,7 +45,6 @@ class Neutron():
 	def interaction(self):
 		self.update_cell()
 		material = self.df.iloc[self.cell, 1]
-		
 		sigma_t1 = self.xs.loc[material, 'sigma_t1']
 		sigma_s11 = self.xs.loc[material, 'sigma_s11']
 		sigma_t2 = self.xs.loc[material, 'sigma_t2']
@@ -72,6 +72,11 @@ class Neutron():
 
 
 	def move(self):
+	'''
+	Generator function that moves the neutron untill it stops in a cell.
+	Each time the neutron crosses a cell boudary or reaches the problem
+	boundary the function yields the cell, track in that cell, and group of the neutron. 
+	'''
 		while True:
 			self.update_cell()
 			material = self.df.iloc[self.cell, 1]
@@ -119,13 +124,12 @@ class Neutron():
 						self.location = 0.001
 					yield  ((self.cell, traveled), self.group)
 						
-
 				else:
 					self.location = possible_location
 					yield  ((self.cell, s), self.group)
 					break
 
-def gen_fissionSource(grid, xs, flux): # assumes uniform flux
+def gen_fissionSource(grid, xs, flux): 
 	fission_sourceF = []
 	for material in grid['material']:
 		nu2 = xs.loc[material, 'nu2']
@@ -181,6 +185,7 @@ xs = pd.read_csv('XS.csv', index_col = 'material')
 
 F0 = gen_fissionSource(grid, xs, np.ones(128)) #initialize the values for F
 cpdf = generate_cpdf(F0)
+
 kn = 1
 weight = 1
 
@@ -225,11 +230,10 @@ for i in range(generations):
 
 
 
-f1, f2, s1, s2 = process_statistics(F)	
+f1, f2, std1, std2 = process_statistics(F)	
 plt.plot(range(len(f1)), f1)
-plt.fill_between(range(len(f2)), f2 - s2, f2 + s2)
-#plt.plot(f1)
-#plt.plot(f2)
+plt.fill_between(range(len(f2)), f2 - std2, f2 + std2)
+plt.fill_between(range(len(f1)), f1 - std1, f1 + std1)
 plt.show()
 			
 
