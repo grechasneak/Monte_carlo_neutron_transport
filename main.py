@@ -145,17 +145,6 @@ def generate_cpdf(fission_source):
 	#cpdf = np.asarray(cpdf)
 	return cpdf
 	
-def tally_current(cells):
-	current_tally = []
-	try:
-		for i in range(len(cells)):
-			if cells[i] < cells[i + 1]:
-				current_tally.append((cells[i], 1))
-			
-			if cells[i] > cells[i + 1]:
-				current_tally.append((cells[i + 1], -1))
-	except:	
-		return current_tally
 	
 def process_statistics(F):
 	Flux1 = np.zeros(128)
@@ -187,8 +176,8 @@ def process_statistics(F):
 global spacing
 spacing = 0.15625
 
-generations = 5
-neutrons = 100
+generations = 100
+neutrons = 1000
 
 
 
@@ -209,48 +198,39 @@ for i in range(generations):
 	flux_2 = np.zeros(128)
 	flux1_squared = np.zeros(128)
 	flux2_squared = np.zeros(128)
-    
-	current1 = np.zeros(127)
-	current2 = np.zeros(127)
+	current1 = np.zeros(129)
+	current2 = np.zeros(129)
    
 	for i in range(neutrons):
-			cells = []
 			n = Neutron(grid, xs, cpdf)
 			while True:
-				
+
 				#move unitll interaction occurs
 				for track_data in n.move():
 					cell = track_data[0][0]
 					track = track_data[0][1]
 					group = track_data[1]
 					
-					cells.append(cell)
+
 					if group == 1:
 						flux_1[cell] = flux_1[cell] + (track * weight) / (neutrons * spacing)
 						flux1_squared[cell] = flux1_squared[cell] + ((track * weight) / (neutrons * spacing))**2
 						
-						try:
-							if n.direction > 0:
-								current1[cell] = current1[cell] + 1
-							else: # negative direction
-								current1[cell - 1] = current1[cell - 1] - 1
-						except:
-							continue
-							
+						if n.direction > 0:
+							current1[cell + 1] = current1[cell + 1] + 1
+						else: # negative direction
+							current1[cell] = current1[cell] - 1
+						
+													
 					if group == 2:
 						flux_2[cell] = flux_2[cell] + (track * weight) / (neutrons * spacing)
 						flux2_squared[cell] = flux2_squared[cell] + ((track * weight) / (neutrons * spacing))**2
 						
-						try:
-							if n.direction > 0:
-								current2[cell] = current2[cell] + 1
-							
-							else: # negative direction
-								current2[cell - 1] = current2[cell - 1] - 1
+						if n.direction > 0:
+							current2[cell + 1] = current2[cell + 1] + 1
+						else: # negative direction
+							current2[cell] = current2[cell] - 1
 								
-						except:
-							continue
-							
 				#what kind of interaction
 				interaction = n.interaction()
 				if interaction == 'fission':
