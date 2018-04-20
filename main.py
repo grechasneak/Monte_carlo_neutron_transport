@@ -141,14 +141,38 @@ def generate_cpdf(fission_source):
 	#cpdf = np.asarray(cpdf)
 	return cpdf
 	
-
+def process_statistics(F):
+	Flux1 = np.zeros(128)
+	Flux2 = np.zeros(128)
+	Flux1_squared = np.zeros(128)
+	Flux2_squared = np.zeros(128)
+	for data in F:
+		flux_1 = data[0]
+		flux_2 = data[1]
+		flux1_squared = data[2]
+		flux2_squared = data[3]
+		
+		Flux1 = Flux1 + flux_1
+		Flux2 = Flux2 + flux_2 
+		Flux1_squared = Flux1_squared + flux1_squared
+		Flux2_squared = Flux2_squared + flux2_squared
+		
+	total_neutrons = (len(F) * neutrons)
+	
+	Flux1_average = Flux1 / total_neutrons
+	var1 = np.sqrt((1 / (total_neutrons - 1) * (Flux1_squared - Flux1_average**2))/total_neutrons)
+	
+	Flux2_average = Flux2 / total_neutrons
+	var2 = np.sqrt((1 / (total_neutrons - 1) * (Flux2_squared - Flux2_average**2))/total_neutrons)
+	return Flux1_average, Flux2_average, var1, var2
+	
 	
 
 global spacing
 spacing = 0.15625
 
 generations = 10
-neutrons = 100
+neutrons = 1000
 
 
 
@@ -181,10 +205,10 @@ for i in range(generations):
 					
 					if group == 1:
 						flux_1[cell] = flux_1[cell] + (track * weight) / (neutrons * spacing)
-						flux1_squared[cell] = flux1_squared[cell] + ((track * weight) / (neutrons * spacing))
+						flux1_squared[cell] = flux1_squared[cell] + ((track * weight) / (neutrons * spacing))**2
 					if group == 2:
 						flux_2[cell] = flux_2[cell] + (track * weight) / (neutrons * spacing)
-						flux2_squared[cell] = flux2_squared[cell] + ((track * weight) / (neutrons * spacing))
+						flux2_squared[cell] = flux2_squared[cell] + ((track * weight) / (neutrons * spacing))**2
 				#what kind of interaction
 				interaction = n.interaction()
 				if interaction == 'fission':
@@ -200,34 +224,12 @@ for i in range(generations):
 	cpdf = generate_cpdf(fissions)
 
 
-def process_statistics(F):
-	Flux1 = np.zeros(128)
-	Flux2 = np.zeros(128)
-	Flux1_squared = np.zeros(128)
-	Flux2_squared = np.zeros(128)
-	for data in F:
-		flux_1 = data[0]
-		flux_2 = data[1]
-		flux1_squared = data[2]
-		flux2_squared = data[3]
-		
-		Flux1 = Flux1 + flux_1
-		Flux2 = Flux2 + flux_2 
-		Flux1_squared = Flux1_squared + flux1_squared
-		Flux2_squared = Flux2_squared + flux2_squared
-		
-	total_neutrons = (len(F) * neutrons)
-	
-	Flux1_average = Flux1 / total_neutrons
-	var1 = np.sqrt((1 / (total_neutrons - 1) * (Flux1_squared - Flux1_average))/total_neutrons)
-	
-	Flux2_average = Flux2 / total_neutrons
-	var2 = np.sqrt((1 / (total_neutrons - 1) * (Flux2_squared - Flux2_average))/total_neutrons)
-	return Flux1_average, Flux2_average, var1, var2
-	
+
 f1, f2, s1, s2 = process_statistics(F)	
-plt.plot(f1)
-plt.plot(f2)
+plt.plot(range(len(f1)), f1)
+plt.fill_between(range(len(f2)), f2 - s2, f2 + s2)
+#plt.plot(f1)
+#plt.plot(f2)
 plt.show()
 			
 
