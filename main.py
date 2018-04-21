@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
+import pickle 
 
 class Neutron():
 	def __init__(self, grid, data, birth_cpdf):
@@ -151,33 +151,51 @@ def process_statistics(F):
 	Flux2 = np.zeros(128)
 	Flux1_squared = np.zeros(128)
 	Flux2_squared = np.zeros(128)
+	Current1 = np.zeros(129)
+	Current2 = np.zeros(129)
+	Current1_squared = np.zeros(129)
+	Current2_squared = np.zeros(129)
+	
 	for data in F:
 		flux_1 = data[0]
 		flux_2 = data[1]
 		flux1_squared = data[2]
 		flux2_squared = data[3]
+		current1 = data[4]
+		current2 = data[5]
 		
-		Flux1 = Flux1 + flux_1
-		Flux2 = Flux2 + flux_2 
-		Flux1_squared = Flux1_squared + flux1_squared
-		Flux2_squared = Flux2_squared + flux2_squared
+		Flux1 +=  flux_1
+		Flux2 +=  flux_2 
+		Flux1_squared += flux1_squared
+		Flux2_squared += flux2_squared
+		Current1 += current1
+		Current2 += current2
+		Current1_squared += current1**2
+		Current2_squared += current2**2
 		
 	total_neutrons = (len(F) * neutrons)
 	
 	Flux1_average = Flux1 / total_neutrons
-	var1 = np.sqrt((1 / (total_neutrons - 1) * (Flux1_squared - Flux1_average**2))/total_neutrons)
+	Flux1_var = np.sqrt((1 / (total_neutrons - 1) * (Flux1_squared - Flux1_average**2))/total_neutrons)
+	
+	Current1_average = Current1 / total_neutrons
+	Current1_var = np.sqrt((1 / (total_neutrons - 1) * (Current1_squared - Current1_average**2))/total_neutrons)
 	
 	Flux2_average = Flux2 / total_neutrons
-	var2 = np.sqrt((1 / (total_neutrons - 1) * (Flux2_squared - Flux2_average**2))/total_neutrons)
-	return Flux1_average, Flux2_average, var1, var2
+	Flux2_var = np.sqrt((1 / (total_neutrons - 1) * (Flux2_squared - Flux2_average**2))/total_neutrons)
 	
+	Current2_average = Current2 / total_neutrons
+	Current2_var = np.sqrt((1 / (total_neutrons - 1) * (Current2_squared - Current2_average**2))/total_neutrons)
 	
+	return Flux1_average, Flux1_var, Flux2_average, Flux2_var, Current1_average, Current1_var, Current2_average, Current2_var
+	
+
 
 global spacing
 spacing = 0.15625
 
-generations = 100
-neutrons = 1000
+generations = 10
+neutrons = 100
 
 
 
@@ -192,7 +210,6 @@ weight = 1
 
 F = []
 k = []
-currents = []
 for i in range(generations):
 	flux_1 = np.zeros(128)
 	flux_2 = np.zeros(128)
@@ -218,6 +235,7 @@ for i in range(generations):
 						
 						if n.direction > 0:
 							current1[cell + 1] = current1[cell + 1] + 1
+							
 						else: # negative direction
 							current1[cell] = current1[cell] - 1
 						
@@ -239,8 +257,7 @@ for i in range(generations):
 					
 	fissions = gen_fissionSource(grid, xs, flux_2)	
 	kn = spacing * sum(fissions)  * kn
-	currents.append((current1, current2))
-	F.append((flux_1, flux_2, flux1_squared, flux2_squared))
+	F.append((flux_1, flux_2, flux1_squared, flux2_squared, current1, current2))
 	k.append(kn)
 	#print(kn)
 	weight = 1 / kn
@@ -248,10 +265,13 @@ for i in range(generations):
 
 
 
-mu1, mu2, std1, std2 = process_statistics(F)	
-plt.plot(range(len(mu1)), mu1)
-plt.fill_between(range(len(mu2)), mu2 - std2, mu2 + std2)
-plt.fill_between(range(len(mu1)), mu1 - std1, mu1 + std1)
+f1, std1, f2, std2, c1, c1_std, c2, c2_std = process_statistics(F)	
+
+plt.plot(range(len(c2)), c2)
+#plt.fill_between(range(len(mu2)), mu2 - std2, mu2 + std2)
+#plt.fill_between(range(len(mu1)), mu1 - std1, mu1 + std1)
+plt.plot(current1)
+plt.plot(current2)
 plt.show()
 			
 
